@@ -10,27 +10,32 @@ class MultiThreadedServer
 		@port = ARGV[0]
 		@server = TCPServer.new(@ip_addr, @port)
 		@student_id=12345678
+		@terminate = false
 		run
 		# ip= Socket.ip_address_list.detect{|intf| intf.ipv4? and !intf.ipv4_loopback? and !intf.ipv4_multicast? and !intf.ipv4_private?}
-# puts "Listening on #{ip.ip_address}:#{port}"
-# thread_pool.add_workers(3)
-# puts thread_pool.workers_status
-# thread_pool.remove_workers(1)
-# puts thread_pool.workers_status
-# thread_pool.status_of_queue
+		# puts "Listening on #{ip.ip_address}:#{port}"
+		# thread_pool.add_workers(3)
+		# puts thread_pool.workers_status
+		# thread_pool.remove_workers(1)
+		# puts thread_pool.workers_status
+	# thread_pool.status_of_queue
 # thread_pool.return_to_q
 	end
 	def run
 		@ip_addr="134.226.44.149"
 		puts "Running"
-		kill_service = false
 		#jobs queue
-		15.times{|i| @jobs.push i} 
+		Thread.new do
+			loop do
+				Thread.start(@server.accept) do |client|
+					@jobs.push(client)
+				end
+			end
+		end
 		workers = (@thread_pool_size).times.map do
 			Thread.new do
 				begin
-				while x = @jobs.pop(true)
-					Thread.start(socket = @server.accept) do |client|
+				while socket = @jobs.pop()
 						puts "Connection accepted"
 						request=socket.gets
 						puts request
@@ -38,32 +43,36 @@ class MultiThreadedServer
 						puts a
 						case a
 						when 1
-							client.puts "#{request}IP:#{@ip_addr}\nPort:#{@port}\nStudentID:#{@student_id}\n"							
-							client.close
+							socket.puts "#{request}IP:#{@ip_addr}\nPort:#{@port}\nStudentID:#{@student_id}\n"							
+							socket.close
 						when 0
-							client.close
+							socket.close
 							exit
 						else
-							client.close
+							socket.close
 						end
-					end
+					
 				end
 				rescue ThreadError
 				#do nothing
 				end
 			end
 	end
-	workers.map(&:join);
+	# workers.map(&:join);
 
 	end
 	def manageRequest(request)
-		if request.include?"HELO"
-						return 1
-		elsif request.include?"KILL_SERVICE"
+		if request.include?"KILL_SERVICE"
+						@terminate = true
 						return 0
+		elsif request.include?"HELO"
+						return 1
 		else return -1
 			puts "return null"
 		end
 	end
 end
 a = MultiThreadedServer.new
+
+while !@terminate
+end
