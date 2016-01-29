@@ -76,7 +76,7 @@ class MultiThreadedServer
 			puts "file sent"
 			socket.close
 		else 
-			puts "No such #{file} file/directory"
+			puts "No such #{filename} file"
 			socket.puts "n/a"
 		end
 	end
@@ -88,15 +88,12 @@ class MultiThreadedServer
         puts "file exist = #{file_exist}"
         # if !file_exist # add and if timestamp is older, or if file doesnt exist
 			theFile = File.open(file, "a")
-			puts "writing file"
 			down_size = (@MTU < size) ? @MTU : size
       		setback = down_size
-      		puts down_size
 		    socket.puts "ready"
       		while down_size>0
       			puts "writing..."
       			chunk = socket.gets(down_size)
-      			puts chunk
       			down_size = @MTU<size ? @MTU : size-setback
       			setback += down_size
         		theFile.write(chunk)
@@ -109,13 +106,11 @@ class MultiThreadedServer
 			socket.puts"OK"
 			socket.close
 	end
-	# workers.map(&:join);
 end
 
 class MAIN
 	threadpool = Threadpool.new
-	# threadpool.initialize
-	while !$terminate
-	end
+	# while !$terminate
+	# end
 end
 main = MAIN.new

@@ -56,14 +56,14 @@ def readFile(filename, socket)
         puts "file exists = #{file_exist}"
         if !file_exist # add and if timestamp is older, or if file doesnt exist
           socket.puts "read #{filename}\n"
+          if socket.gets == "n/a\n"
+            return "n/a"
+          end
           puts "writing to file"
           theFile = File.open(file, "w")
           while chunk = socket.read(@MTU)
             puts "writing..."
             theFile.write(chunk)
-            if(chunk.start_with"n/a")
-              return "n/a"
-            end
           end
           theFile.close
           puts "File saved as #{file}"
@@ -82,7 +82,7 @@ def readFile(filename, socket)
     size = File.size(theFile)
     socket.puts("write #{filename} #{size}\n")
     #ARE YOU READY?
-    puts socket.gets
+    puts "server #{socket.gets}"
     down_size = @MTU<size ? @MTU : size
     setback = down_size 
               puts down_size
@@ -93,9 +93,7 @@ def readFile(filename, socket)
       setback += down_size
       puts "uploading..."
       socket.write(chunk+ "\n")
-      puts chunk
     end
-    puts "OK"
       #   else 
       #     socket.puts("file on server is newer than yours")
       # end
@@ -163,7 +161,6 @@ def inputLoop(input)
         end
         file_not_empty = file != '' && !file.nil?
         content_not_empty = content != '' && !content.nil?
-        puts file_not_empty
         if (command.start_with?("HELO"))
           heloMsg(server, input)
         elsif (command.start_with?("KILL_SERVICE"))
