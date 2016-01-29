@@ -19,7 +19,7 @@ class MultiThreadedServer
 
 		time1 = Time.now + 1
 		now = Time.now
-		while now<=time1 && (request=socket.gets.chomp).nil?
+		while now<=time1 && (request=socket.gets).nil?
 			now = Time.now
 		end
 		if !request.nil?
@@ -77,7 +77,7 @@ class MultiThreadedServer
 			socket.close
 		else 
 			puts "No such #{file} file/directory"
-			socket.puts "No such file / wrong directory to file"
+			socket.puts "n/a"
 		end
 	end
 	def writeFile(filename, socket, size)

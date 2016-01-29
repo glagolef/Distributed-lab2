@@ -61,17 +61,19 @@ def readFile(filename, socket)
           while chunk = socket.read(@MTU)
             puts "writing..."
             theFile.write(chunk)
+            if(chunk.start_with"n/a")
+              return "n/a"
+            end
           end
           theFile.close
           puts "File saved as #{file}"
         else 
         end
           theFile = File.open(file, "rb")
-          # puts theFile.read
           return theFile
   end
   def writeFile(filename, socket, content)
-    readFile(filename, socket)
+    
     file = @files + filename
     theFile = File.open(file, "a+")
     theFile.write content
@@ -79,13 +81,6 @@ def readFile(filename, socket)
     theFile = File.open(file, "rb")
     size = File.size(theFile)
     socket.puts("write #{filename} #{size}\n")
-    #  socket.write "1"
-    # puts socket.gets
-    # socket.write "3"
-    # puts socket.gets
-    # socket.write "5"
-    # puts socket.gets
-
     #ARE YOU READY?
     puts socket.gets
     down_size = @MTU<size ? @MTU : size
@@ -180,16 +175,14 @@ def inputLoop(input)
           else
             if (command=="read")
             fileToRead = readFile(file, server)
-            puts fileToRead.read
+              if(fileToRead == "n/a") 
+                puts "No such file found."
+              else fileToRead.read end
             elsif(command == "write" && content_not_empty)
               puts writeFile(file, server, content)
-            else
-
-            end
+            else end
           end
-        else
-          puts server.gets
-        end
+        else puts server.gets end
         server.close
   # end
 end
@@ -200,6 +193,11 @@ def heloMsg(socket, message)
         puts "Got '#{resp.chomp}'"
       end
 end
-
-# inputLoop("read abc.txt")
-inputLoop("write abc.txt new input")
+#reading existing file
+inputLoop("read gay.txt")
+#reading inexistent file
+inputLoop("read a.txt")
+#writing to an existing file
+inputLoop("write abc.txt  OOOOOOOOOO")
+#writing to an inexistent file
+inputLoop("write new_file abc de f g 1234 234rgkdfgnv;slk")
