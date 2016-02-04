@@ -1,5 +1,11 @@
 require 'thread'
 require 'socket'
+# require 'openssl'
+# require 'base64'
+require './crypt_alg.rb'
+$ticket
+$session_key
+$time
 @MTU=1024*1024*10
 threads = []
 @files = 'files/'
@@ -12,12 +18,8 @@ rejections = 0
 #       puts "Thread #{i} is requesting a socket"
 #       socket = TCPSocket.open('127.0.0.1', 5000)
 #       puts "Thread #{i} has connected to a socket"
-#       # if i==19
-#       #   socket.puts "KILL_SERVICE\n"
-#       # end
 #       socket.puts "HELO text\n"
 #       puts "HELO message sent"
-# #      socket.sleep(4)
 #       4.times do |j|
 #         resp = socket.gets
 #         puts "Got '#{resp.chomp}' from #{i}"
@@ -35,33 +37,31 @@ rejections = 0
 # puts "Successes: #{successes.to_s}"
 # puts "Rejections: #{rejections.to_s}"
 
-# #readWriteTest
-# socket = TCPSocket.open('127.0.0.1', 5000)
-# #read file
-# input = "read crave_you.mp3"
-# socket.puts input
-# input = input.split
-
-# File.open("c_y.mp3", "w") do |file|
-#       while chunk = socket.read(@MTU)
-#         file.write(chunk)
-#       end
-#         # file.close
-#       puts "File received"
-#     end
+def heloMsg(socket, message)
+      msg ="#{$ticket}//" + encrypt(message, $session_key) 
+      puts msg
+      socket.puts msg 
+      puts "#{message} sent"
+      reply = ""
+      while reply.chomp[-2..-1]!="=="
+          reply << socket.gets
+        end
+      reply = decrypt(reply, $session_key)
+      puts "Got '#{reply}'"
+end
 def readFile(filename, socket)
     file = @files + filename
         puts "Directory of file = #{file}" #this is the directory of file
         file_exist = File.exist?(file)
         puts "file exists = #{file_exist}"
         if !file_exist # add and if timestamp is older, or if file doesnt exist
-          socket.puts "read #{filename}\n"
-          if socket.gets == "n/a\n"
+          socket.puts "#{$ticket}//" + encrypt("read #{filename}\n", $session_key)
+          if decrypt(socket.gets, $session_key) == "n/a\n"
             return "n/a"
           end
           puts "writing to file"
           theFile = File.open(file, "w")
-          while chunk = socket.read(@MTU)
+          while chunk = decrypt(socket.read(@MTU), $session_key)
             puts "writing..."
             theFile.write(chunk)
           end
@@ -80,82 +80,57 @@ def readFile(filename, socket)
     theFile.close
     theFile = File.open(file, "rb")
     size = File.size(theFile)
-    socket.puts("write #{filename} #{size}\n")
+    socket.puts encrypt("write #{filename} #{size}\n", $session_key)
     #ARE YOU READY?
-    puts "server #{socket.gets}"
+    puts "server #{decrypt(socket.gets, $session_key)}"
     down_size = @MTU<size ? @MTU : size
     setback = down_size 
-              puts down_size
+    puts down_size
 
     while down_size>0
       chunk = theFile.read(down_size)
       down_size = @MTU<size ? @MTU : size-setback
       setback += down_size
       puts "uploading..."
-      socket.write(chunk+ "\n")
+      socket.write encrypt(chunk + "\n", $session_key)
     end
-      #   else 
-      #     socket.puts("file on server is newer than yours")
-      # end
-    return socket.gets
+    return decrypt(socket.gets, $session_key)
   end
-# write file
-# input = "write crave_you.mp3"
-# file = "c_y.mp3"
-# file_exist = File.exist?(file)
-# if  file_exist
-#   timestamp = File.mtime(file)
-#   socket.puts input + timestamp
-#                 puts "opening file"
-#                 fileContents = File.open(file, "rb")
-#                 #   puts "writing file"
-#                   while chunk = fileContents.read(@MTU)
-#                     puts "sending file"
-#                     socket.write(chunk)
-#                   end
-#                 # end
-#                 # puts "writing file"
-#                 # socket.write fileContents
-#                 puts "file sent"
-#                 socket.close
-#               else 
-#                 puts "No such #{file} file/directory"
-#                 socket.puts "No such file / wrong directory to file"
-#                 socket.close
-#               end
-# i
+  def login(username, password)
+    as_socket = TCPSocket.open('127.0.0.1',5546)
+    encr_message = encrypt("login #{username}", password)
+    message = "#{username} #{encr_message}"
+    as_socket.puts(message)
+    rcv = ""
+      while rcv.chomp[-2..-1]!="=="
+        rcv << as_socket.gets
+        puts rcv 
+      end
+    token = decrypt(rcv, password)
+    as_socket.close
+    return token
+  end
+  def logout
 
+  end
 
-# socket.close
-# def write(filename, socket)
-#     file = @files + filename
-#         puts file #this is the directory of file
-#         file_exist = File.exist?(file)
-#         puts file_exist
-#         if  file_exist
-#       fileContents = File.open(file, "rb")
-#       while chunk = fileContents.read(@MTU)
-#         socket.write(chunk)
-#       end
-#       puts "file sent"
-#       socket.close
-#     else 
-#       puts "No such #{file} file/directory"
-#       socket.puts "No such file / wrong directory to file"
-#     end
-#   end
-
-  
-def inputLoop(input)
+def inputLoop(username, password, input)
   # loop do
+        token = login(username, Digest::SHA1.hexdigest(password))
+        puts token
+        tck = "ticket:"
+        sk = "session_key:"
+        sv = "server"
+        $ticket = token[/#{tck}(.*?)#{sk}/m, 1]
+        $session_key = token[/#{sk}(.*?)#{sv}/m, 1]
+        puts "ticket = #{$ticket}"
+        puts "session_key = #{$session_key}"
         server = TCPSocket.open('127.0.0.1', 5001)
         # input = gets.chomp
-
         in_split = input.split
         command = in_split[0]
         file = in_split[1]
         content = input[in_split[0].length + in_split[1].length + 2..-1]
-        #getting rid of special characters if present
         if(!file.nil?)
           file = file.tr('\/:*?"<>| ', '')
         end
@@ -164,7 +139,7 @@ def inputLoop(input)
         if (command.start_with?("HELO"))
           heloMsg(server, input)
         elsif (command.start_with?("KILL_SERVICE"))
-          server.puts input
+          server.puts "#{$ticket}//" + encrypt(input, $session_key)
           puts server.gets
         elsif(command == "read" or command == "write")
           if file_not_empty == false
@@ -183,18 +158,15 @@ def inputLoop(input)
         server.close
   # end
 end
-def heloMsg(socket, message)
-      socket.puts input
-      puts "#{message} sent"
-      while resp = socket.gets
-        puts "Got '#{resp.chomp}'"
-      end
-end
+#Hello
+inputLoop("admin", "password", "HELO It's me")
 #reading existing file
-inputLoop("read gay.txt")
-#reading inexistent file
-inputLoop("read a.txt")
-#writing to an existing file
-inputLoop("write abc.txt  OOOOOOOOOO")
-#writing to an inexistent file
-inputLoop("write new_file abc de f g 1234 234rgkdfgnv;slk")
+inputLoop("admin", "password","read README.md")
+# #reading inexistent file
+# inputLoop("read a.txt")
+# #writing to an existing file
+# inputLoop("write abc.txt  OOOOOOOOOO")
+# #writing to an inexistent file
+# inputLoop("write new_file abc de f g 1234 234rgkdfgnv;slk")
+# #Kill service
+# inputLoop("KILL_SERVICE die")

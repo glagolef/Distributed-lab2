@@ -1,7 +1,8 @@
 require 'socket'
 class Threadpool
-	def initialize
-		@a = MultiThreadedServer.new
+	def initialize(server)
+		@thread_pool_size = 1
+		@a = server
 		@jobs = Queue.new
 		@server = TCPServer.new($ip_addr, $port)
 		run
@@ -17,7 +18,7 @@ class Threadpool
 				end
 			end
 		end
-		workers = ($thread_pool_size).times.map do
+		workers = (@thread_pool_size).times.map do
 			Thread.new do
 				begin
 				while true
@@ -25,7 +26,7 @@ class Threadpool
 						puts "job"
 						@a.handleRequest(@jobs.pop)
 					else 
-						puts "sleeeping"
+						# puts "sleeeping"
 						sleep (1)
 					end
 				end
